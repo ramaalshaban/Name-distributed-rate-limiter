@@ -66,5 +66,6 @@ async def get_data():
     return {"status": "success", "message": "Here is your protected data!"}
 
 @app.get("/")
-def read_root():
-  return {"status": "success", "message": "hello world!"}
+async def root():
+    instance_name = os.getenv("APP_INSTANCE", "unknown")
+    return {"message": "Hello World", "handled_by": instance_name}

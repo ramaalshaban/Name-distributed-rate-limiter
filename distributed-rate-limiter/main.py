@@ -30,31 +30,44 @@ with open("rate_limiter.lua", "r") as f:
 rate_limit_script = r.register_script(lua_script_content)
 
 WINDOW_SECONDS = settings.window_seconds
-MAX_REQUESTS = settings.max_requests
+MAX_REQUESTS = 100
+MAX_DAY_LIMIT = 15
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     api_key = request.headers.get("X-API-Key", request.client.host)
     redis_key = f"rate_limit:{api_key}"
+    redis_sec_key =  f"daily_limit:{api_key}"
+
     
     now = time.time()
     req_id = str(uuid.uuid4())
     
-    allowed, current_count = rate_limit_script(
-        keys=[redis_key],
-        args=[now, WINDOW_SECONDS, MAX_REQUESTS, req_id]
+    allowed, current_count , current_daily_count, limit_type= rate_limit_script(
+        keys=[redis_key,redis_sec_key],
+        args=[now, WINDOW_SECONDS, MAX_REQUESTS,MAX_DAY_LIMIT, req_id]
     )
     
     if not allowed:
+        if limit_type == "daily":
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"error": "Daily quota exceeded"},
+                headers={
+                    "Retry-After": "86400",
+                    "X-RateLimit-Limit": str(MAX_DAY_LIMIT),
+                    "X-RateLimit-Remaining": "0"
+                }
+            )
         return JSONResponse(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            content={"error": "Too Many Requests"},
-            headers={
-                "Retry-After": str(WINDOW_SECONDS),
-                "X-RateLimit-Limit": str(MAX_REQUESTS),
-                "X-RateLimit-Remaining": "0"
-            }
-        )
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"error": "Too Many Requests"},
+                headers={
+                    "Retry-After": str(WINDOW_SECONDS),
+                    "X-RateLimit-Limit": str(MAX_REQUESTS),
+                    "X-RateLimit-Remaining": "0"
+                }
+            )
     
     response = await call_next(request)
     response.headers["X-RateLimit-Limit"] = str(MAX_REQUESTS)

@@ -1,0 +1,18 @@
+{
+    "tiers": {
+      "free": {
+        "max_requests": 5,
+        "window_seconds": 10,
+        "max_day_limit": 15
+      },
+      "pro": {
+        "max_requests": 20,
+        "window_seconds": 10,
+        "max_day_limit": 100
+      }
+    },
+    "api_keys": {
+      "free-test": "free",
+      "pro-test": "pro"
+    }
+  }
